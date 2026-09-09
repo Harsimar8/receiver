@@ -1,0 +1,47 @@
+<div class="receiver-container">
+
+  <h1>Machine 2 - Pub/Sub Receiver</h1>
+
+  <!-- Machine 2 UID -->
+  <div class="uid-box">
+
+    <h2>My Machine 2 UID</h2>
+
+    <p *ngIf="pubsubReceiverService.myUID">
+      <strong>{{ pubsubReceiverService.myUID }}</strong>
+    </p>
+
+    <p *ngIf="!pubsubReceiverService.myUID">
+      Connecting to Pub/Sub...
+    </p>
+
+  </div>
+
+
+  <!-- Received Messages -->
+  <div class="messages-box">
+
+    <h2>Received Messages</h2>
+
+    <p *ngIf="pubsubReceiverService.receivedMessages.length === 0">
+      No messages received yet.
+    </p>
+
+    <!-- All messages are kept together -->
+    <div
+      *ngIf="pubsubReceiverService.receivedMessages.length > 0"
+      class="messages-line"
+    >
+
+      <span
+        *ngFor="let message of pubsubReceiverService.receivedMessages"
+        class="message"
+      >
+        {{ message }}
+      </span>
+
+    </div>
+
+  </div>
+
+</div>

@@ -1,0 +1,27 @@
+.messages-box {
+  margin-top: 20px;
+  padding: 20px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+}
+
+.messages-line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+
+  width: 100%;
+
+  /* After this height, scrolling starts */
+  max-height: 250px;
+  overflow-y: auto;
+}
+
+.message {
+  padding: 8px 12px;
+  background: #f3f3f3;
+  border-radius: 5px;
+
+  /* Keep each number/UID on one piece */
+  white-space: nowrap;
+}

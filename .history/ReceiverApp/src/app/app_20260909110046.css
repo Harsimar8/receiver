@@ -1,0 +1,23 @@
+.receiver-container {
+  padding: 30px;
+  font-family: Arial, sans-serif;
+}
+
+.uid-box,
+.messages-box {
+  margin-top: 20px;
+  padding: 20px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+}
+
+.uid-box strong {
+  font-size: 20px;
+}
+
+.message {
+  margin-top: 10px;
+  padding: 10px;
+  background: #f3f3f3;
+  border-radius: 5px;
+}
