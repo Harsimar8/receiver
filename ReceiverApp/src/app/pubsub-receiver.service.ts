@@ -17,7 +17,7 @@ export class PubsubReceiverService {
     private pubsub!: PubSub;
     private client!: BaseClient;
 
-    constructor(private zone: NgZone) {}
+    constructor(private zone: NgZone) { }
 
 
     // ==========================================
@@ -35,6 +35,10 @@ export class PubsubReceiverService {
         localStorage.getItem('receivedMessages') || '[]'
     );
 
+    public receivedJson: any = null;
+    public jsonVersion: number = 0;
+
+
 
     // ==========================================
     // TXT FILE
@@ -42,9 +46,11 @@ export class PubsubReceiverService {
 
     private txtFileHandle: any = null;
 
-    private txtFileContent: string = '';
+private txtFileContent: string = '';
 
-    public txtStatus: string = '';
+public txtStatus: string = '';
+
+public txtFileName: string = '';
 
 
     // ==========================================
@@ -224,13 +230,9 @@ export class PubsubReceiverService {
                     );
 
 
-                    const decoder =
-                        new TextDecoder();
+                    const decoder = new TextDecoder();
 
-
-                    const message =
-                        decoder.decode(data);
-
+                    const message = decoder.decode(data);
 
                     console.log(
                         'MESSAGE:',
@@ -238,33 +240,74 @@ export class PubsubReceiverService {
                     );
 
 
-                    // ==================================
-                    // UPDATE FRONTEND IMMEDIATELY
-                    // ==================================
-
-                    that.zone.run(() => {
-
-                        that.receivedMessages.push(
-                            message
-                        );
+                    // ==========================================
+                    // TRY TO PARSE MESSAGE AS JSON
+                    // ==========================================
 
 
-                        // Save frontend messages
+                    try {
 
-                        localStorage.setItem(
-                            'receivedMessages',
-                            JSON.stringify(
-                                that.receivedMessages
-                            )
-                        );
-
+                        const jsonData = JSON.parse(message);
 
                         console.log(
-                            'FRONTEND MESSAGES:',
-                            that.receivedMessages
+                            '===== JSON RECEIVED ====='
                         );
 
-                    });
+                        console.log(
+                            jsonData
+                        );
+
+
+                        // Give JSON to frontend
+                        that.zone.run(() => {
+
+    that.receivedJson = jsonData;
+
+    that.jsonVersion++;
+
+});
+
+
+                        // Convert JSON object into readable text
+const jsonText =
+    JSON.stringify(jsonData, null, 2);
+
+
+// If the TXT already contains something,
+// add two blank lines before the new JSON
+if (that.txtFileContent.trim().length > 0) {
+
+    that.txtFileContent +=
+        '\r\n\r\n';
+
+}
+
+
+// Add the new JSON after the existing content
+that.txtFileContent +=
+    jsonText;
+
+
+// Save everything to the TXT file
+await that.saveTxtFile();
+
+
+                        that.zone.run(() => {
+
+                            that.txtStatus =
+                                'JSON received and saved to TXT file';
+
+                        });
+
+
+                    } catch (error) {
+
+                        console.error(
+                            'Received data is not valid JSON:',
+                            error
+                        );
+
+                    }
 
 
                     // ==================================
@@ -455,7 +498,7 @@ export class PubsubReceiverService {
             this.txtStatus =
                 'TXT file selected';
 
-            this.zone.run(() => {});
+            this.zone.run(() => { });
 
 
         } catch (error) {
@@ -614,6 +657,18 @@ export class PubsubReceiverService {
                                 error
                             );
 
+
+                            // Saved TXT file no longer exists
+                            this.txtFileHandle = null;
+
+
+                            this.zone.run(() => {
+
+                                this.txtStatus =
+                                    'TXT file was deleted. Please select/create a TXT file.';
+
+                            });
+
                         }
 
                     };
@@ -638,11 +693,19 @@ export class PubsubReceiverService {
 
     private async saveTxtFile(): Promise<void> {
 
+        // No TXT destination has been selected
         if (!this.txtFileHandle) {
 
             console.log(
                 'No Machine 2 TXT file selected.'
             );
+
+            this.zone.run(() => {
+
+                this.txtStatus =
+                    'No TXT destination. Please select/create a TXT file.';
+
+            });
 
             return;
 
@@ -651,10 +714,22 @@ export class PubsubReceiverService {
 
         try {
 
+            // Check that the file still exists
+            const file =
+                await this.txtFileHandle.getFile();
+
+            console.log(
+                'Saving to TXT file:',
+                file.name
+            );
+
+
+            // Open the existing file for writing
             const writable =
                 await this.txtFileHandle.createWritable();
 
 
+            // Write all existing + new JSON content
             await writable.write(
                 this.txtFileContent
             );
@@ -668,9 +743,14 @@ export class PubsubReceiverService {
             );
 
 
-            console.log(
-                this.txtFileContent
-            );
+            this.zone.run(() => {
+
+                this.txtStatus =
+                    'JSON automatically saved to ' +
+                    file.name;
+
+            });
+
 
         } catch (error) {
 
@@ -679,10 +759,223 @@ export class PubsubReceiverService {
                 error
             );
 
+
+            // The saved file may have been deleted
+            this.txtFileHandle = null;
+
+
+            this.zone.run(() => {
+
+                this.txtStatus =
+                    'TXT file was deleted. Please select/create a TXT file.';
+
+            });
+
         }
 
     }
+    async createNewTxtFile(): Promise<void> {
 
+    try {
+
+        const handle =
+            await (window as any).showSaveFilePicker({
+
+                suggestedName:
+                    'machine2-received-data.txt',
+
+                types: [
+                    {
+                        description:
+                            'Text file',
+
+                        accept: {
+                            'text/plain':
+                                ['.txt']
+                        }
+                    }
+                ]
+
+            });
+
+
+        this.txtFileHandle =
+            handle;
+
+
+        this.txtFileName =
+            handle.name;
+
+
+        // New file starts empty
+        this.txtFileContent = '';
+
+
+        // Save the new file handle
+        const request =
+            indexedDB.open(
+                'Machine2TxtDB',
+                1
+            );
+
+
+        request.onupgradeneeded = () => {
+
+            const db =
+                request.result;
+
+
+            if (
+                !db.objectStoreNames.contains(
+                    'files'
+                )
+            ) {
+
+                db.createObjectStore(
+                    'files'
+                );
+
+            }
+
+        };
+
+
+        request.onsuccess = () => {
+
+            const db =
+                request.result;
+
+
+            const transaction =
+                db.transaction(
+                    'files',
+                    'readwrite'
+                );
+
+
+            const store =
+                transaction.objectStore(
+                    'files'
+                );
+
+
+            store.put(
+                handle,
+                'machine2TxtFile'
+            );
+
+        };
+
+
+        // Make sure the new file is empty
+        const writable =
+            await handle.createWritable();
+
+
+        await writable.write('');
+
+        await writable.close();
+
+
+        this.txtStatus =
+            'New TXT file created: ' +
+            handle.name;
+
+
+        console.log(
+            '===== NEW TXT FILE CREATED ====='
+        );
+
+
+    } catch (error) {
+
+        console.error(
+            'Create TXT error:',
+            error
+        );
+
+
+        this.txtStatus =
+            'TXT creation cancelled or failed';
+
+    }
+
+}
+async saveToExistingFile(): Promise<void> {
+
+    // Check whether a TXT file is already selected
+    if (!this.txtFileHandle) {
+
+        this.txtStatus =
+            'No existing TXT file selected. Create a new TXT file first.';
+
+        return;
+    }
+
+
+    try {
+
+        // Check that we still have permission
+        const permission =
+            await this.txtFileHandle.queryPermission({
+                mode: 'readwrite'
+            });
+
+
+        if (permission !== 'granted') {
+
+            this.txtStatus =
+                'Permission required for the existing TXT file.';
+
+            return;
+        }
+
+
+        // Check that the file still exists
+        const file =
+            await this.txtFileHandle.getFile();
+
+
+        // Open the existing file
+        const writable =
+            await this.txtFileHandle.createWritable();
+
+
+        // Write the current content
+        await writable.write(
+            this.txtFileContent
+        );
+
+
+        // Finish writing
+        await writable.close();
+
+
+        this.txtStatus =
+            'Saved to existing TXT: ' +
+            file.name;
+
+
+    } catch (error) {
+
+        console.error(
+            'Could not save existing TXT:',
+            error
+        );
+
+
+        // File is no longer available
+        this.txtFileHandle = null;
+
+        this.txtFileName = '';
+
+
+        this.txtStatus =
+            'Existing TXT file is unavailable. Create a new TXT file.';
+
+    }
+
+}
 
     // ==========================================
     // DELETE EVERYTHING

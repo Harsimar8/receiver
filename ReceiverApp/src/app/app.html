@@ -2,13 +2,19 @@
 
   <h1>Machine 2 - Pub/Sub Receiver</h1>
 
-  <!-- Machine 2 UID -->
+
+  <!-- ========================================== -->
+  <!-- MACHINE 2 UID -->
+  <!-- ========================================== -->
+
   <div class="uid-box">
 
     <h2>My Machine 2 UID</h2>
 
     <p *ngIf="pubsubReceiverService.myUID">
-      <strong>{{ pubsubReceiverService.myUID }}</strong>
+      <strong>
+        {{ pubsubReceiverService.myUID }}
+      </strong>
     </p>
 
     <p *ngIf="!pubsubReceiverService.myUID">
@@ -18,57 +24,276 @@
   </div>
 
 
-  <!-- TXT FILE CONTROLS -->
-  <div class="file-box">
+ <!-- ========================================== -->
+<!-- TXT FILE CONTROLS -->
+<!-- ========================================== -->
 
-    <h2>Machine 2 TXT File</h2>
+<div class="file-box">
 
-    <button
-      type="button"
-      (click)="pubsubReceiverService.chooseTxtFile()"
-    >
-      Select TXT File
-    </button>
+  <h2>TXT File</h2>
 
-    <button
-      type="button"
-      (click)="pubsubReceiverService.deleteAll()"
-      style="margin-left: 10px;"
-    >
-      Delete All
-    </button>
 
-    <p *ngIf="pubsubReceiverService.txtStatus">
-      <b>Status:</b>
-      {{ pubsubReceiverService.txtStatus }}
+  <!-- SAVE TO EXISTING -->
+
+  <button
+    type="button"
+    class="txt-button"
+    (click)="pubsubReceiverService.saveToExistingFile()"
+  >
+    Save to Existing
+  </button>
+
+
+  <!-- CREATE NEW -->
+
+  <button
+    type="button"
+    class="txt-button"
+    (click)="pubsubReceiverService.createNewTxtFile()"
+  >
+    Create New TXT
+  </button>
+
+
+  <!-- DELETE CONTENT -->
+
+  <button
+    type="button"
+    class="delete-button"
+    (click)="pubsubReceiverService.deleteAll()"
+  >
+    Delete Content
+  </button>
+
+
+  <!-- CURRENT FILE -->
+
+  <p *ngIf="pubsubReceiverService.txtFileName">
+
+    <b>Current TXT:</b>
+
+    {{ pubsubReceiverService.txtFileName }}
+
+  </p>
+
+
+  <!-- STATUS -->
+
+  <p
+    class="txt-status"
+    *ngIf="pubsubReceiverService.txtStatus"
+  >
+
+    <b>Status:</b>
+
+    {{ pubsubReceiverService.txtStatus }}
+
+  </p>
+
+</div>
+
+
+
+  <!-- ========================================== -->
+  <!-- RECEIVED JSON -->
+  <!-- ========================================== -->
+
+  <div class="json-container">
+
+    <h2>Received JSON</h2>
+
+
+    <p *ngIf="!pubsubReceiverService.receivedJson">
+
+      No JSON received yet.
+
     </p>
 
-  </div>
-
-
-  <!-- Received Messages -->
-  <div class="messages-box">
-
-    <h2>Received Messages</h2>
-
-    <p *ngIf="pubsubReceiverService.receivedMessages.length === 0">
-      No messages received yet.
-    </p>
 
     <div
-      *ngIf="pubsubReceiverService.receivedMessages.length > 0"
-      class="messages-line"
+      class="json-layout"
+      *ngIf="pubsubReceiverService.receivedJson"
     >
 
-      <span
-        *ngFor="let message of pubsubReceiverService.receivedMessages"
-        class="message"
-      >
-        {{ message }}
-      </span>
+
+      <!-- ====================================== -->
+      <!-- LEFT SIDE -->
+      <!-- JSON HIERARCHY -->
+      <!-- ====================================== -->
+
+      <div class="hierarchy-box">
+
+        <h3>Object Hierarchy</h3>
+
+
+        <ng-container
+          *ngTemplateOutlet="
+            renderObject;
+            context: {
+              data: pubsubReceiverService.receivedJson
+            }
+          "
+        ></ng-container>
+
+      </div>
+
+
+
+      <!-- ====================================== -->
+      <!-- RIGHT SIDE -->
+      <!-- SELECTED OBJECT PROPERTIES -->
+      <!-- ====================================== -->
+
+      <div class="properties-box">
+
+        <h3>Selected Object</h3>
+
+
+        <p
+          *ngIf="!selectedItem"
+          class="no-selection"
+        >
+
+          Select an object from the hierarchy.
+
+        </p>
+
+
+        <div *ngIf="selectedItem">
+
+          <h4>
+
+            {{ selectedItem.name || 'Selected Object' }}
+
+          </h4>
+
+
+          <div
+            class="property-row"
+            *ngFor="
+              let property of selectedItem | keyvalue
+            "
+          >
+
+            <strong>
+
+              {{ property.key }}
+
+            </strong>
+
+
+            <span>
+
+              {{ property.value | json }}
+
+            </span>
+
+          </div>
+
+        </div>
+
+      </div>
 
     </div>
 
   </div>
+
+
+
+  <!-- ========================================== -->
+  <!-- ONE RECURSIVE JSON TEMPLATE ONLY -->
+  <!-- ========================================== -->
+
+  <ng-template
+    #renderObject
+    let-data="data"
+  >
+
+    <div
+      class="hierarchy-level"
+      *ngFor="
+        let entry of data | keyvalue
+      "
+    >
+
+
+      <!-- ====================================== -->
+      <!-- OBJECT -->
+      <!-- ====================================== -->
+
+      <div
+        *ngIf="isObject(entry.value)"
+      >
+
+        <details open>
+
+          <summary>
+
+            {{ entry.key }}
+
+          </summary>
+
+
+          <div class="nested-level">
+
+            <ng-container
+              *ngTemplateOutlet="
+                renderObject;
+                context: {
+                  data: entry.value
+                }
+              "
+            ></ng-container>
+
+          </div>
+
+        </details>
+
+      </div>
+
+
+
+      <!-- ====================================== -->
+      <!-- ARRAY -->
+      <!-- ====================================== -->
+
+      <div
+        *ngIf="isArray(entry.value)"
+      >
+
+        <details open>
+
+          <summary>
+
+            {{ entry.key }}
+
+          </summary>
+
+
+          <div class="nested-level">
+
+            <button
+              type="button"
+              class="object-button"
+              *ngFor="
+                let item of entry.value;
+                let i = index
+              "
+              (click)="selectItem(item)"
+            >
+
+              {{ getObjectName(item, i) }}
+
+            </button>
+
+          </div>
+
+        </details>
+
+      </div>
+
+    </div>
+
+  </ng-template>
 
 </div>
